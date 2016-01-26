@@ -38,12 +38,30 @@ module HTTP
           end
         end
 
+        check_content_type_charset(body, headers)
+
         yield headers, body
         break
       end
 
       name, value = parse_header(line)
       headers.add(name, value)
+    end
+  end
+
+  private def self.check_content_type_charset(body, headers)
+    if body && (content_type = headers["Content-Type"]?)
+      pieces = content_type.split(';')
+      pieces.each do |piece|
+        key_value = piece.split('=', 2)
+        if key_value.size == 2
+          key, value = key_value
+          if key.strip == "charset"
+            body.encoding = value.strip
+            break
+          end
+        end
+      end
     end
   end
 

@@ -924,6 +924,31 @@ class String
     self[0, size - 1]
   end
 
+  # Returns a slice of bytes containing this string encoded in the given encoding.
+  #
+  # ```
+  # "好".encode("GB2312") # => [186, 195]
+  # "好".bytes            # => [229, 165, 189]
+  # ```
+  def encode(encoding : String) : Slice(UInt8)
+    inbuf_ptr = to_unsafe
+    inbytesleft = LibC::SizeT.new(bytesize)
+    outbuf = uninitialized UInt8[1024]
+    Iconv.new("UTF-8", encoding) do |iconv|
+      io = MemoryIO.new
+      while inbytesleft > 0
+        outbuf_ptr = outbuf.to_unsafe
+        outbytesleft = LibC::SizeT.new(outbuf.size)
+        err = iconv.convert(pointerof(inbuf_ptr), pointerof(inbytesleft), pointerof(outbuf_ptr), pointerof(outbytesleft))
+        if err == -1 && Errno.value == Errno::EINVAL
+          raise ArgumentError.new "incomplete multibyte sequence"
+        end
+        io.write(outbuf.to_slice[0, outbuf.size - outbytesleft])
+      end
+      io.to_slice
+    end
+  end
+
   # Returns a new string with leading and trailing whitespace removed.
   #
   # ```
@@ -2713,7 +2738,7 @@ class String
   end
 
   def to_s(io)
-    io.write Slice.new(to_unsafe, bytesize)
+    io.write_utf8 Slice.new(to_unsafe, bytesize)
   end
 
   def to_unsafe

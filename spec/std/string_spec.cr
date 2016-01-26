@@ -1578,4 +1578,29 @@ describe "String" do
       String.build(UInt32::MAX) { }
     end
   end
+
+  describe "encode" do
+    it "encodes" do
+      bytes = "Hello".encode("UCS-2LE")
+      bytes.to_a.should eq([72, 0, 101, 0, 108, 0, 108, 0, 111, 0])
+    end
+
+    it "raises if wrong encoding" do
+      expect_raises ArgumentError, "invalid encoding" do
+        "Hello".encode("FOO")
+      end
+    end
+
+    it "raises if illegal byte sequence" do
+      expect_raises ArgumentError, "invalid multibyte sequence" do
+        "ñ".encode("GB2312")
+      end
+    end
+
+    it "raises if incomplete byte sequence" do
+      expect_raises ArgumentError, "incomplete multibyte sequence" do
+        "好".byte_slice(0, 1).encode("GB2312")
+      end
+    end
+  end
 end
